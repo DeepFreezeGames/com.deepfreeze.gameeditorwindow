@@ -26,7 +26,7 @@ namespace GameEditorWindow.Editor
             }
         }
         
-        private static readonly List<IGameEditorWindow> Windows = new();
+        private static readonly List<IGameEditorWindow> Windows = new List<IGameEditorWindow>();
         private IGameEditorWindow _currentWindow;
         
         public static GameEditorWindow Instance { get; private set; }
