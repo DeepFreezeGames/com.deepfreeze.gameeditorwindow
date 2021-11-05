@@ -3,7 +3,7 @@
   "displayName": "Game Editor Window",
   "author": {"name": "Deep Freeze Games", "url": "https://github.com/DeepFreezeGames"},
   "registry": "https://github.com/DeepFreezeGames/com.deepfreeze.gameeditorwindow.git",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "unity": "2018.1",
   "description": "A unified way of creating custom editor windows in a single window with tabs.",
   "keywords": [
