@@ -8,6 +8,8 @@ namespace GameEditorWindow.Editor
 {
     public class GameEditorWindow : EditorWindow
     {
+        private const string LastWindowKey = "gameeditorwindow_lastWindow";
+
         private class GameEditorWindowComparer : IComparer<IGameEditorWindow>
         {
             public int Compare(IGameEditorWindow windowA, IGameEditorWindow windowB)
@@ -27,7 +29,7 @@ namespace GameEditorWindow.Editor
         }
         
         private static readonly List<IGameEditorWindow> Windows = new List<IGameEditorWindow>();
-        private IGameEditorWindow _currentWindow;
+        private static IGameEditorWindow _currentWindow;
         
         public static GameEditorWindow Instance { get; private set; }
         public static Vector2 InstanceSize => Instance != null ? Instance.position.size : Vector2.one;
@@ -63,6 +65,12 @@ namespace GameEditorWindow.Editor
             }
             
             Windows.Sort(new GameEditorWindowComparer());
+
+            var lastWindow = EditorPrefs.GetString(LastWindowKey, null);
+            if (!string.IsNullOrEmpty(lastWindow))
+            {
+                _currentWindow = Windows.First(w => w.GetType().Name.Equals(lastWindow));
+            }
         }
 
         private void OnEnable()
@@ -123,6 +131,10 @@ namespace GameEditorWindow.Editor
                         {
                             _currentWindow?.OnFocusLost();
                             _currentWindow = _currentWindow == window ? null : window;
+                            if (_currentWindow != null)
+                            {
+                                EditorPrefs.SetString(LastWindowKey, _currentWindow.GetType().Name);
+                            }
                             _currentWindow?.OnFocused();
                         }
 
