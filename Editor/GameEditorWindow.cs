@@ -34,6 +34,7 @@ namespace GameEditorWindow.Editor
         public static GameEditorWindow Instance { get; private set; }
         public static Vector2 InstanceSize => Instance != null ? Instance.position.size : Vector2.one;
         
+        private Vector2 _scrollPosSidebar;
         private Vector2 _scrollPosMainArea;
         
         [MenuItem("Window/Game Editor")]
@@ -67,7 +68,7 @@ namespace GameEditorWindow.Editor
             Windows.Sort(new GameEditorWindowComparer());
 
             var lastWindow = EditorPrefs.GetString(LastWindowKey, null);
-            if (!string.IsNullOrEmpty(lastWindow))
+            if (!string.IsNullOrEmpty(lastWindow) && Windows.Count > 0)
             {
                 _currentWindow = Windows.First(w => w.GetType().Name.Equals(lastWindow));
             }
@@ -118,28 +119,32 @@ namespace GameEditorWindow.Editor
                 }
                 else
                 {
-                    for (var i = 0; i < Windows.Count; i++)
+                    _scrollPosSidebar = EditorGUILayout.BeginScrollView(_scrollPosSidebar, GUIStyle.none, GUIStyle.none);
                     {
-                        if (i == Windows.Count - 1)
+                        for (var i = 0; i < Windows.Count; i++)
                         {
-                            GUILayout.FlexibleSpace();
-                        }
-
-                        var window = Windows[i];
-                        GUI.backgroundColor = window == _currentWindow ? Color.cyan : Color.white;
-                        if (GUILayout.Button(window.Icon, GUILayout.Width(24f), GUILayout.Height(24f)))
-                        {
-                            _currentWindow?.OnFocusLost();
-                            _currentWindow = _currentWindow == window ? null : window;
-                            if (_currentWindow != null)
+                            if (i == Windows.Count - 1)
                             {
-                                EditorPrefs.SetString(LastWindowKey, _currentWindow.GetType().Name);
+                                GUILayout.FlexibleSpace();
                             }
-                            _currentWindow?.OnFocused();
-                        }
 
-                        GUI.backgroundColor = Color.white;
+                            var window = Windows[i];
+                            GUI.backgroundColor = window == _currentWindow ? Color.cyan : Color.white;
+                            if (GUILayout.Button(window.Icon, GUILayout.Width(24f), GUILayout.Height(24f)))
+                            {
+                                _currentWindow?.OnFocusLost();
+                                _currentWindow = _currentWindow == window ? null : window;
+                                if (_currentWindow != null)
+                                {
+                                    EditorPrefs.SetString(LastWindowKey, _currentWindow.GetType().Name);
+                                }
+                                _currentWindow?.OnFocused();
+                            }
+
+                            GUI.backgroundColor = Color.white;
+                        }
                     }
+                    EditorGUILayout.EndScrollView();
                 }
             }
             EditorGUILayout.EndVertical();
