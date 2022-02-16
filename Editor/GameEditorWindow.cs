@@ -70,7 +70,7 @@ namespace GameEditorWindow.Editor
             var lastWindow = EditorPrefs.GetString(LastWindowKey, null);
             if (!string.IsNullOrEmpty(lastWindow) && Windows.Count > 0)
             {
-                _currentWindow = Windows.First(w => w.GetType().Name.Equals(lastWindow));
+                _currentWindow = Windows.FirstOrDefault(w => w.GetType().Name.Equals(lastWindow));
             }
         }
 
