@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace GameEditorWindow.Editor
+namespace DeepFreeze.Packages.GameEditorWindow.Editor
 {
     public interface IGameEditorWindow
     {

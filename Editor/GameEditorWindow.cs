@@ -4,7 +4,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-namespace GameEditorWindow.Editor
+namespace DeepFreeze.Packages.GameEditorWindow.Editor
 {
     public class GameEditorWindow : EditorWindow
     {
