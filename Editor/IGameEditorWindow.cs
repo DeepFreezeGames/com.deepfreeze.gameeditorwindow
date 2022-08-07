@@ -4,11 +4,12 @@ namespace DeepFreeze.Packages.GameEditorWindow.Editor
 {
     public interface IGameEditorWindow
     {
-        GUIContent Icon { get; }
-
         int SortOrder { get; }
+        
+        GUIContent IconCollapsed { get; }
+        GUIContent IconExpanded { get; }
 
-        void OnFocused();
+        void OnFocus();
 
         void OnFocusLost();
 

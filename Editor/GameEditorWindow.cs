@@ -9,29 +9,46 @@ namespace DeepFreeze.Packages.GameEditorWindow.Editor
     public class GameEditorWindow : EditorWindow
     {
         private const string LastWindowKey = "gameeditorwindow_lastWindow";
+        private const string ExpandedPrefKey = "gameeditorwindow_expanded";
 
-        private class GameEditorWindowComparer : IComparer<IGameEditorWindow>
+        private const float SidebarWidthCollapsed = 30;
+        private const float SidebarWidthExpanded = 200;
+        
+        public static GameEditorWindow Instance { get; private set; }
+
+        public static bool SidebarExpanded
         {
-            public int Compare(IGameEditorWindow windowA, IGameEditorWindow windowB)
+            get => EditorPrefs.GetBool(ExpandedPrefKey, false);
+            set => EditorPrefs.SetBool(ExpandedPrefKey, value);
+        }
+
+        public static string LastWindow
+        {
+            get => EditorPrefs.GetString(LastWindowKey, string.Empty);
+            set => EditorPrefs.SetString(LastWindowKey, value);
+        }
+        
+        private static readonly List<IGameEditorWindow> Windows = new();
+        private static IGameEditorWindow _currentWindow;
+        
+        private static GUIStyle _styleSidebarButton;
+        public static GUIStyle StyleSidebarButton
+        {
+            get
             {
-                if (windowA == null)
+                if (_styleSidebarButton == null)
                 {
-                    return -1;
+                    _styleSidebarButton = new GUIStyle("Button")
+                    {
+                        alignment = TextAnchor.MiddleLeft,
+                        
+                    };
                 }
 
-                if (windowB == null)
-                {
-                    return 1;
-                }
-
-                return windowA.SortOrder.CompareTo(windowB.SortOrder);
+                return _styleSidebarButton;
             }
         }
         
-        private static readonly List<IGameEditorWindow> Windows = new List<IGameEditorWindow>();
-        private static IGameEditorWindow _currentWindow;
-        
-        public static GameEditorWindow Instance { get; private set; }
         public static Vector2 InstanceSize => Instance != null ? Instance.position.size : Vector2.one;
         
         private Vector2 _scrollPosSidebar;
@@ -46,37 +63,45 @@ namespace DeepFreeze.Packages.GameEditorWindow.Editor
         }
         
         [InitializeOnLoadMethod]
-        private static void FetchEditorWindows()
+        private static void RefreshWindows()
+        {
+            _currentWindow?.OnFocusLost();
+            Windows.Clear();
+
+            EditorApplication.delayCall += DelayRefreshWindows;
+        }
+
+        private static void DelayRefreshWindows()
         {
             Windows.Clear();
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();
             foreach (var assembly in assemblies)
             {
                 var types = assembly.GetTypes().Where(t => typeof(IGameEditorWindow).IsAssignableFrom(t));
-                foreach (var type in types)
-                {
-                    if (type.IsInterface)
-                    {
-                        continue;
-                    }
-                    
-                    //Debug.Log($"Found type: {type.Name}");
-                    Windows.Add((IGameEditorWindow)Activator.CreateInstance(type));
-                }
+                Windows.AddRange(from type in types where !type.IsInterface select (IGameEditorWindow) Activator.CreateInstance(type));
             }
             
             Windows.Sort(new GameEditorWindowComparer());
-
-            var lastWindow = EditorPrefs.GetString(LastWindowKey, null);
-            if (!string.IsNullOrEmpty(lastWindow) && Windows.Count > 0)
-            {
-                _currentWindow = Windows.FirstOrDefault(w => w.GetType().Name.Equals(lastWindow));
-            }
+            _currentWindow = string.IsNullOrEmpty(LastWindow)
+                ? null
+                : Windows.FirstOrDefault(w =>
+                    w.GetType().Name.Equals(LastWindow, StringComparison.InvariantCultureIgnoreCase));
+            _currentWindow?.OnFocus();
         }
 
         private void OnEnable()
         {
             
+        }
+
+        private void OnFocus()
+        {
+            _currentWindow?.OnFocus();
+        }
+
+        private void OnLostFocus()
+        {
+            _currentWindow?.OnFocusLost();
         }
 
         private void OnDisable()
@@ -99,72 +124,61 @@ namespace DeepFreeze.Packages.GameEditorWindow.Editor
             EditorGUILayout.BeginHorizontal();
             {
                 DrawSidebar();
-                EditorGUILayout.BeginVertical();
-                {
-                    DrawToolbar();
-                    DrawMainContent();
-                }
-                EditorGUILayout.EndVertical();
+                DrawMainContent();
             }
             EditorGUILayout.EndHorizontal();
         }
         
         private void DrawSidebar()
         {
-            EditorGUILayout.BeginVertical("box", GUILayout.Width(30f));
+            EditorGUILayout.BeginVertical("box", GUILayout.Width(SidebarExpanded ? SidebarWidthExpanded : SidebarWidthCollapsed));
             {
-                if (Windows.Count == 0)
+                foreach (var window in Windows)
                 {
-                    GUILayout.FlexibleSpace();
-                }
-                else
-                {
-                    _scrollPosSidebar = EditorGUILayout.BeginScrollView(_scrollPosSidebar, GUIStyle.none, GUIStyle.none);
+                    GUI.color = _currentWindow != null && _currentWindow == window ? Color.cyan : Color.white;
+                    if (GUILayout.Button(SidebarExpanded ? window.IconExpanded : window.IconCollapsed, StyleSidebarButton, GUILayout.Width(SidebarExpanded ? SidebarWidthExpanded - 4 : SidebarWidthCollapsed - 4), GUILayout.Height(SidebarWidthCollapsed - 4)))
                     {
-                        for (var i = 0; i < Windows.Count; i++)
-                        {
-                            if (i == Windows.Count - 1)
-                            {
-                                GUILayout.FlexibleSpace();
-                            }
-
-                            var window = Windows[i];
-                            GUI.backgroundColor = window == _currentWindow ? Color.cyan : Color.white;
-                            if (GUILayout.Button(window.Icon, GUILayout.Width(24f), GUILayout.Height(24f)))
-                            {
-                                _currentWindow?.OnFocusLost();
-                                _currentWindow = _currentWindow == window ? null : window;
-                                if (_currentWindow != null)
-                                {
-                                    EditorPrefs.SetString(LastWindowKey, _currentWindow.GetType().Name);
-                                }
-                                _currentWindow?.OnFocused();
-                            }
-
-                            GUI.backgroundColor = Color.white;
-                        }
+                        _currentWindow?.OnFocusLost();
+                        _currentWindow = _currentWindow != null && _currentWindow == window ? null : window;
+                        LastWindow = _currentWindow != null ? _currentWindow.GetType().Name : string.Empty;
+                        _currentWindow?.OnFocus();
+                        GUI.FocusControl(null);
+                        _scrollPosMainArea = Vector2.zero;
                     }
-                    EditorGUILayout.EndScrollView();
+                    GUI.color = Color.white;
                 }
+                
+                GUILayout.FlexibleSpace();
+
+                EditorGUILayout.BeginHorizontal();
+                {
+                    if (SidebarExpanded)
+                    {
+                        GUILayout.FlexibleSpace();
+                    }
+
+                    if (GUILayout.Button(SidebarExpanded ? "<" : ">"))
+                    {
+                        SidebarExpanded = !SidebarExpanded;
+                    }
+                }
+                EditorGUILayout.EndHorizontal();
             }
             EditorGUILayout.EndVertical();
-        }
-
-        private void DrawToolbar()
-        {
-            EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
-            {
-                _currentWindow?.ToolbarLeft();
-                GUILayout.FlexibleSpace();
-                _currentWindow?.ToolbarRight();
-            }
-            EditorGUILayout.EndHorizontal();
         }
 
         private void DrawMainContent()
         {
             EditorGUILayout.BeginVertical();
             {
+                EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
+                {
+                    _currentWindow?.ToolbarLeft();
+                    GUILayout.FlexibleSpace();
+                    _currentWindow?.ToolbarRight();
+                }
+                EditorGUILayout.EndHorizontal();
+                
                 _scrollPosMainArea = EditorGUILayout.BeginScrollView(_scrollPosMainArea);
                 {
                     _currentWindow?.MainContent();
@@ -172,6 +186,24 @@ namespace DeepFreeze.Packages.GameEditorWindow.Editor
                 EditorGUILayout.EndScrollView();
             }
             EditorGUILayout.EndVertical();
+        }
+        
+        private class GameEditorWindowComparer : IComparer<IGameEditorWindow>
+        {
+            public int Compare(IGameEditorWindow windowA, IGameEditorWindow windowB)
+            {
+                if (windowA == null)
+                {
+                    return -1;
+                }
+
+                if (windowB == null)
+                {
+                    return 1;
+                }
+
+                return windowA.SortOrder.CompareTo(windowB.SortOrder);
+            }
         }
     }
 }
